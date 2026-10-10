@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.log
+*.csv
+.env
+.env.*
+config.json
+*.exe
