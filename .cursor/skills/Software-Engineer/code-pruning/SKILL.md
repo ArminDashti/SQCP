@@ -1,209 +1,65 @@
 ---
 name: code-pruning
 description: >-
-  Safely removes dead or orphan code — unused symbols, imports, blocks, and unused files/modules with no connections to live code. Use when cleaning dead code, orphan modules, unused imports, or unused files from the tree.
-metadata:
-  version: 1.0.0
-  author: "Armin Dashti"
-  tags: []
-  last_updated: "2026-10-10 23:16:26"
-  uuid: 2c699555-9c5c-40b1-aa40-df0341cfee00
+  Use whenever the user asks to remove, delete, drop, or get rid of anything in code: a feature, page, component, endpoint, setting, dependency, or file. Removes the target completely and safely with zero leftovers: every reference, import, route, UI entry, config key, style, asset, test, doc, and dependency that existed only for it, while keeping the app building and working.
+author: "Armin Dashti"
+uuid: 2c699555-9c5c-40b1-aa40-df0341cfee00
 ---
-# Code Removal (Dead / Orphan Only)
+# Code Pruning
 
-## When to use
+## Goal
 
-- User asks to remove unused, dead, unreachable, or orphaned code
-- User asks to clean unused imports or delete files/modules with zero references
-- User asks for unused-file / file-tree cleanup only
-- Scope: remove only code that is **provably** dead or orphaned
-- Exclusions: do not remove code that is still connected — refuse and explain references
+When the user asks to remove something, it must be gone **completely**: no dead code, no dangling references, no orphan files, no unused imports, config, styles, assets, tests, or docs. The app must still build, run, and pass tests afterwards.
 
-## Modes
+## Rules
 
-| Mode | Trigger | Focus |
-| ---- | ------- | ----- |
-| Symbol / block | Unused helpers, classes, imports, unreachable blocks | In-file and cross-file dead symbols |
-| Unused files | Unused files, orphan modules, file-tree cleanup | Whole files/modules with zero live references |
+1. **No leftovers.** Remove every trace of the target (see checklist). A removal with leftovers is not done.
+2. **Remove callers too.** Code that uses the target is updated so it no longer does: delete the call, the menu item, the route, the button, the condition. Do not leave stubs, `TODO`s, commented-out code, or empty handlers.
+3. **Shared code stays.** If something is also used by code that is not being removed, keep it and only remove the target's usage of it.
+4. **Never break the app.** After removal, the project builds, lints, and tests pass (or failures are explained and unrelated).
+5. **Ask when unsure.** If the target is ambiguous, dynamic usage can't be ruled out, removal touches a public API, a database schema / data, or would change behavior beyond the target, ask the user first.
+6. **Plan first for big removals.** When more than a few files are touched, show the removal plan and wait for a yes.
+7. **Respect boundaries.** Don't touch generated or vendor code, secrets, or `.gitignore`d local files unless the user targets them. Don't reformat unrelated code.
 
-Both modes share the same eligibility rules. Prefer **unused-files** mode when the ask is only about deleting files from the tree.
+## Leftover checklist
 
-## Eligibility (all must pass)
+Search for the target's names, paths, keys, and strings (case variants included) and clear every hit:
 
-A target is removable only when every check below is satisfied:
+- [ ] Source files, classes, functions, components, hooks, types, constants
+- [ ] Imports, exports, re-exports, barrel / index files
+- [ ] Call sites, event handlers, conditions, feature-flag branches
+- [ ] Routes, navigation, menus, buttons, links, page titles
+- [ ] DI / plugin / service registration, middleware, jobs, cron, CLI commands
+- [ ] Config and env keys, settings UI, defaults, `.env.example`
+- [ ] API endpoints, client calls, DTOs / schemas, validation
+- [ ] Styles, CSS classes, icons, images, fonts, translations / i18n strings
+- [ ] Tests, fixtures, mocks, snapshots, stories
+- [ ] Docs, README, changelog references, comments describing it
+- [ ] Package dependencies used only by the target (and lockfile)
+- [ ] Build, CI, Docker, deployment manifests
+- [ ] Database migrations / tables (ask first; never drop data without approval)
+- [ ] Empty folders and empty files left behind
 
-| Check | Requirement |
-| ----- | ----------- |
-| References | Zero call sites, imports, exports, re-exports, type usages, or string/symbol references in the repo |
-| Reachability | Not reachable from entry points (`main`, `index`, routes, CLI, jobs, hooks, DI registration, config manifests) |
-| Tests | Not referenced by any test (unless the test itself is also dead/orphan) |
-| Runtime wiring | Not registered in routing, DI, plugins, feature flags, build config, or deployment manifests |
-| Public API | Not part of a public/exported surface consumed elsewhere |
+## Steps
 
-If **any** connection exists → **do not remove**. Report the connection(s) and stop.
+1. **Identify the target** exactly. Confirm with the user if it's ambiguous.
+2. **Map it.** Search the repo (names, paths, string keys, dynamic `require` / `import()` / reflection) and list everything belonging to the target, sorted into "remove" and "shared, keep".
+3. **Plan.** For bigger removals, show the plan and wait for approval.
+4. **Remove.** Delete files (`git rm` in git repos), update callers, clean imports, config, styles, assets, tests, docs, and dependencies. Match the surrounding code style.
+5. **Sweep.** Re-search every name, path, and key from step 2; there must be zero hits outside intentional history (git log, changelog entries the user wants kept).
+6. **Verify.** Build, lint, and run tests. Run the app if practical and check the affected screens / flows.
+7. **Report.**
 
-## Workflow
+## Report template
 
-Copy this checklist and track progress:
-
-```
-Task Progress:
-- [ ] 1. Identify candidate targets
-- [ ] 2. Prove dead/orphan status
-- [ ] 3. Confirm no hidden connections
-- [ ] 4. Execute removal
-- [ ] 5. Validate and report
-```
-
-### 1. Identify candidate targets
-
-Look for dead or orphan artifacts:
-
-| Target | Examples |
-| ------ | -------- |
-| Unused function / method | Never called anywhere |
-| Unused class / type | Never instantiated or referenced |
-| Unused variable / constant | Declared but never read |
-| Unused import | Imported but never used |
-| Unreachable code block | After `return`/`throw`, disabled branch, or provably false condition |
-| Orphan / unused file | No imports from other project files; not an entry point |
-| Stale comment / empty stub | Left behind by prior removal; documents nothing live |
-| Unused config entry | Key present but nothing reads it |
-
-When the user names a specific symbol or file, treat it as a **candidate** — eligibility still requires proof in step 2.
-
-#### Unused-files mode (file-tree cleanup)
-
-When the ask is unused files only:
-
-1. Scope the tree (path, package, or whole repo) as the user specified.
-2. Build candidates: project source files not imported/required/referenced by other project files.
-3. Exclude entry points, public package exports, build/deploy manifests, generated/vendor trees (unless the user explicitly targets them), and anything under `.gitignore` without clear intent.
-4. List confirmed orphans in a plan before deleting when more than a few files are involved.
-
-### 2. Prove dead/orphan status (required)
-
-Before deleting anything:
-
-1. Search the codebase for the symbol name, file path, and export names (Grep, symbol search).
-2. Search imports, re-exports, dynamic references (`require`, `import()`, reflection, string literals).
-3. Check tests, configs, routing, DI, build files, and manifests.
-4. Trace reachability from known entry points when removing files or modules.
-
-**Evidence required:** List every search performed and confirm zero live connections. If evidence is incomplete, search more or ask before proceeding.
-
-### 3. Confirm no hidden connections
-
-Block removal when:
-
-- Any caller, importer, or exporter exists (including cross-package)
-- Symbol or file is used only in tests that still run live code paths
-- Target is an entry point or registered externally
-- Usage is dynamic/reflective and cannot be ruled out safely
-- Generated or vendor code (unless provably unused within that boundary)
-
-Do **not** offer to "remove and fix callers." Connected code is out of scope for this skill.
-
-### 4. Execute removal
-
-- Edit only files required for confirmed dead/orphan targets.
-- For whole orphan files, prefer `git rm` when the repo is under git.
-- Clean up artifacts left behind:
-  - Unused imports made orphan by the removal
-  - Empty blocks or trailing commas
-  - Orphaned comments that only described removed code
-  - Config / manifest entries that became unused as a direct result
-  - Empty directories left after file removal (only if they become empty and unused)
-- Match surrounding code style; do not reformat unrelated lines.
-
-### 5. Validate and report
-
-- Re-search for dangling references after edits.
-- Run linters or tests when available and relevant.
-- Apply **doc-sync** if project docs exist and the removal changes structure or APIs.
-- End with a completion report per **report-end-task** (Mode A).
-
-## Safety rules
-
-- **Never remove connected code** — even when the user requests it. Explain blockers and what would need to change outside this skill's scope.
-- Never delete without proof when impact is unclear.
-- Warn when a file becomes empty after removal; remove the file only if it is itself orphan.
-- Respect `.gitignore` and do not delete ignored secrets or local-only files without explicit intent.
-- For bulk cleanup, list all confirmed dead targets in a plan before editing.
-
-## Edge cases
-
-| Case | Handling |
-| ---- | -------- |
-| User asks to remove live code | Refuse; list all connections found |
-| Used only in dead tests | Remove test and target together if both are orphan |
-| Last export in file | Remove file only if the whole file is orphan |
-| Entry point (`main`, `index`, route root) | Never remove |
-| Generated / vendor code | Do not remove unless provably unused and user explicitly targets it |
-| Feature flag branches | Remove only branches provably unreachable and unreferenced |
-| Ambiguous dynamic usage | Do not remove; report uncertainty |
-| File referenced only by path string | Treat as connected unless the string is clearly dead too |
-
-## Removal report template
+One grid with exactly one data row. Every cell is a number: how many files were added, edited, and deleted, and how many lines were added, edited, and deleted in total.
 
 ```markdown
-### Code Removal Report
+### Removal Report: <target>
 
-**Mode:** [symbol/block | unused-files]
-**Removed:** [name and type, or file list]
-**Location:** [file:line or path]
-**Orphan proof:** [searches run; zero references confirmed]
-
-**Dependencies checked:** yes
-**Connections found:** none (required to proceed)
-**Cleanup performed:** [unused imports, config, orphan files, empty dirs, etc.]
-
-**Skipped (still connected):** [list or none]
-**Suggested next steps:** [run tests, manual review of skipped items]
+| Added file | Edited file | Deleted file | Added line | Edited line | Deleted line |
+|------------|-------------|--------------|------------|-------------|--------------|
+| 0 | 4 | 3 | 2 | 6 | 241 |
 ```
 
-## Examples
-
-### Example 1 — Remove orphan helper
-
-**User:** Clean up unused helpers.
-
-**Agent:**
-
-1. Search for private helpers with zero references across src/ and tests/.
-2. Find `_formatLegacyDate()` in `utils/dates.js` — no imports, calls, or exports.
-3. Remove function and any imports that became unused.
-4. Report: removed 1 dead function; 0 connections found.
-
-### Example 2 — Refuse connected code
-
-**User:** Remove `validateEmail`.
-
-**Agent:**
-
-1. Found `validateEmail()` in `utils/validators.js`.
-2. Connections: `signup.js:23`, `profile.js:67`; exported from `validators.js`.
-3. **Do not remove** — code is live. Report connections and stop.
-
-### Example 3 — Unused file
-
-**User:** Delete `legacy_auth.py`.
-
-**Agent:**
-
-1. Search imports and references to `legacy_auth` — zero matches outside the file.
-2. Not listed in routes, DI, or config.
-3. Remove file with `git rm`.
-4. Report: removed 1 orphan file; re-search shows no dangling references.
-
-### Example 4 — Unused-files tree cleanup
-
-**User:** Remove unused files under `src/legacy/`.
-
-**Agent:**
-
-1. List candidates under `src/legacy/` with no importers.
-2. Prove each file has zero references, config wiring, or entry-point use.
-3. Present confirmed orphan list; skip any file with connections.
-4. `git rm` confirmed orphans; clean empty dirs and leftover imports.
-5. Report removed vs skipped with proof summary.
+Under the grid, add one line each only when relevant: **Kept (shared)**, **Verification** (build / lint / tests result), **Needs your decision**.
