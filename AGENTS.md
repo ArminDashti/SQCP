@@ -1,3 +1,26 @@
+# SQCP — agent notes
+
+This repository is the **single unified project** for structured SQL Server MCP
+access. It merges:
+
+- **sql-server-mcp** — nine parameterized MCP tools, `mssql` connection pool,
+  identifier quoting, per-call audit logs (`src/tools.ts`, `src/sql.ts`,
+  `src/logging.ts`, `src/identifiers.ts`).
+- **SqGent** — Windows x64 single-executable build/install (`scripts/*.ps1`,
+  `src/sea-entry.js`), env-only configuration (`SQL_SKIP_CONFIG_FILE` /
+  `SQL_CONFIG_FROM_ENV`), and extended offline checks in `src/self-check.ts`.
+
+## Layout
+
+| Path | Purpose |
+|---|---|
+| `src/index.ts` | Stdio MCP server (`name: sqcp`) |
+| `src/config.ts` | JSON file + environment configuration |
+| `scripts/installer-win-x64.ps1` | Build `dist/sqcp.exe`, install under `%LOCALAPPDATA%\Sqcp` |
+| `npm test` | `tsc` + `dist/self-check.js` (tool registration + config smoke) |
+
+Legacy repos remain read-only references; implement changes here only.
+
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 

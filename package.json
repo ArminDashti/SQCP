@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "A structured SQL Server MCP server over stdio.",
+  "description": "SQCP — unified SQL Server MCP server (stdio + Windows SEA); successor to sql-server-mcp and SqGent.",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",

@@ -1,6 +1,15 @@
 # SQCP
 
-SQCP is a SQL Server MCP server. Node.js TypeScript MCP server for structured, parameterized SQL Server access.
+SQCP (**S**tructured **Q**uery **C**ontrol **P**lane) is the unified home for three
+formerly separate projects:
+
+| Former repository | Role in SQCP |
+|---|---|
+| [sql-server-mcp](https://github.com/ArminDashti/sql-server-mcp) | Full MCP tool surface (`src/tools.ts`, SQL helpers, audit logging) |
+| [SqGent](https://github.com/ArminDashti/SqGent) | Windows single-executable packaging, env-only configuration, extended offline self-check |
+| **SQCP** (this repo) | Canonical name, install paths, and documentation going forward |
+
+Node.js TypeScript MCP server for structured, parameterized SQL Server access.
 It uses the `mssql` driver (Tedious) and communicates over stdio. Each tool call
 input and generated statement is logged under `logsDir`.
 
@@ -43,8 +52,10 @@ Build output: `dist/index.js` (stdio MCP server).
 
 ## Configuration
 
-The server loads `SQL_SERVER_CONFIG` (default: `./config.json`). Environment
-variables override file values.
+The server loads `SQL_SERVER_CONFIG` (default: `./config.json`) unless you set
+`SQL_SKIP_CONFIG_FILE=true` (alias: `SQL_CONFIG_FROM_ENV=true`) to read
+credentials only from the environment. Environment variables always override
+file values when a file is loaded.
 
 | `config.json` field | Environment variable | Description |
 |---|---|---|
@@ -57,7 +68,8 @@ variables override file values.
 | `encrypt` | `SQL_ENCRYPT` | Encrypt the connection (default: `true`) |
 | `logsDir` | `SQL_LOGS_DIR` | Tool-call log directory (default: `~/sqcp`) |
 | — | `SQL_SERVER_CONFIG` | Path to the JSON configuration file |
-| — | `SQL_SKIP_CONFIG_FILE` | Set to `true` to ignore the JSON file and read only environment variables |
+| — | `SQL_SKIP_CONFIG_FILE` | When `true`, ignore the JSON file and read credentials from env only |
+| — | `SQL_CONFIG_FROM_ENV` | Alias of `SQL_SKIP_CONFIG_FILE` |
 
 Example configuration:
 
@@ -126,14 +138,36 @@ may contain application data; protect the directory accordingly.
 
 ## Cursor configuration
 
+File-based config:
+
 ```json
 {
   "mcpServers": {
-    "sql-server": {
+    "sqcp": {
       "command": "node",
-      "args": ["C:/Users/armin/GitHub/SQCP/dist/index.js"],
+      "args": ["C:/Users/<you>/GitHub/SQCP/dist/index.js"],
       "env": {
-        "SQL_SERVER_CONFIG": "C:/Users/armin/GitHub/SQCP/config.json"
+        "SQL_SERVER_CONFIG": "C:/Users/<you>/GitHub/SQCP/config.json"
+      }
+    }
+  }
+}
+```
+
+Environment-only (no `config.json` on disk):
+
+```json
+{
+  "mcpServers": {
+    "sqcp": {
+      "command": "node",
+      "args": ["C:/Users/<you>/GitHub/SQCP/dist/index.js"],
+      "env": {
+        "SQL_SKIP_CONFIG_FILE": "true",
+        "SQL_SERVER": "sql.example.com",
+        "SQL_DATABASE": "MyDatabase",
+        "SQL_USERNAME": "app_user",
+        "SQL_PASSWORD": "<from-your-secret-store>"
       }
     }
   }
@@ -141,15 +175,33 @@ may contain application data; protect the directory accordingly.
 ```
 
 Alternatively, provide `SQL_SERVER`, `SQL_DATABASE`, `SQL_USERNAME`, and
-`SQL_PASSWORD` in the MCP server's `env` object.
+`SQL_PASSWORD` in the MCP server's `env` object (optionally with
+`SQL_SKIP_CONFIG_FILE=true`).
 
 ## Development
 
 ```bash
 npm run dev       # Run TypeScript over stdio
 npm run build     # Compile to dist/
-npm test          # Build and verify the exact nine registered tools
+npm test          # Build and verify tools plus config/env smoke checks
 ```
+
+## Migrating from sql-server-mcp or SqGent
+
+Development and releases continue only in this repository. The MCP tool set and
+behavior match the former **sql-server-mcp** tree; Windows packaging and
+env-only configuration match **SqGent**.
+
+| Legacy | SQCP equivalent |
+|---|---|
+| `node dist/index.js` (sql-server-mcp / SqGent) | Same entry point; MCP server name is `sqcp` |
+| `~/sql-server-mcp` or `~/SqGent` default logs | `~/sqcp` (override with `logsDir` / `SQL_LOGS_DIR`) |
+| `%LOCALAPPDATA%\SqlServerMcp\sql-server-mcp.exe` | `%LOCALAPPDATA%\Sqcp\sqcp.exe` |
+| `%LOCALAPPDATA%\SqGent\SqGent.exe` | `%LOCALAPPDATA%\Sqcp\sqcp.exe` |
+
+Re-run `scripts/installer-win-x64.ps1` to install the unified executable. The
+installer stops legacy process names (`sql-server-mcp`, `SqGent`, `sqcp`) and
+hosts-file cleanup recognizes comment markers from all three projects.
 
 ## License
 
