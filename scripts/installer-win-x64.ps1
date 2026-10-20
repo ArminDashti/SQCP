@@ -27,6 +27,8 @@ $ErrorActionPreference = 'Stop'
 $script:ProjectRoot  = Split-Path -Parent $PSScriptRoot
 $script:AppName      = "sqcp"
 $script:ExeName      = "sqcp.exe"
+$script:LegacyProcessNames = @('sqcp', 'SqGent', 'sql-server-mcp')
+$script:LegacyHostsMarkers = '(?:sqcp|SqGent|sql-server-mcp)'
 $script:PublishExe   = Join-Path ${script:ProjectRoot} "dist\${script:ExeName}"
 $script:TargetExe    = Join-Path $InstallRoot ${script:ExeName}
 $script:HostsFile    = Join-Path $env:SystemRoot "System32\drivers\etc\hosts"
@@ -62,7 +64,15 @@ function Split-PathList {
 }
 
 function Get-Processes {
-  return @(Get-Process -Name ${script:AppName} -ErrorAction SilentlyContinue)
+  $running = New-Object System.Collections.Generic.List[System.Diagnostics.Process]
+  foreach ($name in $script:LegacyProcessNames) {
+    foreach ($process in @(Get-Process -Name $name -ErrorAction SilentlyContinue)) {
+      if (-not ($running | Where-Object { $_.Id -eq $process.Id })) {
+        [void]$running.Add($process)
+      }
+    }
+  }
+  return @($running)
 }
 
 function Stop-InstalledApp {
@@ -181,7 +191,7 @@ function Write-HostsEntry {
   $existing = @(Get-Content -LiteralPath ${script:HostsFile})
   $kept = @($existing | Where-Object {
     -not ([regex]::IsMatch($_, ('^\s*127\.0\.0\.1\s+' + [regex]::Escape($Address) + '\s*$')) -or
-           [regex]::IsMatch($_, ('^\s*#\s+sqcp\s+' + [regex]::Escape($Address) + '\s*$')))
+           [regex]::IsMatch($_, ('^\s*#\s+' + $script:LegacyHostsMarkers + '\s+' + [regex]::Escape($Address) + '\s*$')))
   })
   $kept += "127.0.0.1`t$Address"
   $kept += "# sqcp $Address"

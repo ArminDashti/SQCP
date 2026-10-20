@@ -1,8 +1,9 @@
 {
   "name": "sqcp",
   "version": "1.0.0",
+  "description": "Unified SQL Server MCP server (stdio + Windows installer); merges sql-server-mcp and SqGent.",
   "author": "Armin Dashti",
-  "category": "",
-  "last-modified": "2026-10-10T22:40:00+03:30",
+  "category": "mcp",
+  "last-modified": "2026-10-20T04:20:00+00:00",
   "licence": "MIT"
 }

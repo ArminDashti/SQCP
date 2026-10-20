@@ -1,3 +1,18 @@
+# SQCP — project context
+
+**SQCP** consolidates [sql-server-mcp](https://github.com/ArminDashti/sql-server-mcp)
+(MCP tool implementation) and [SqGent](https://github.com/ArminDashti/SqGent)
+(Windows SEA packaging and env-only config). One TypeScript codebase:
+
+- Stdio MCP entry: `src/index.ts` → `dist/index.js`
+- Tools: `list_objects`, `test_connection`, `insert`, `update`, `delete`,
+  `select`, `info`, `object_info`, `deep_search`
+- Windows: `npm run package:win-x64` / `scripts/installer-win-x64.ps1`
+
+When editing behavior, preserve functionality from both predecessor repos and
+keep migration paths (legacy process names and hosts-file markers) in the
+PowerShell scripts.
+
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 

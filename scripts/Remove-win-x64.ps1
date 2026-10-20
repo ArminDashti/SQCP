@@ -23,6 +23,8 @@ param(
 $ErrorActionPreference = 'Stop'
 $script:AppName    = "sqcp"
 $script:ExeName    = "sqcp.exe"
+$script:LegacyProcessNames = @('sqcp', 'SqGent', 'sql-server-mcp')
+$script:LegacyHostsMarkers = '(?:sqcp|SqGent|sql-server-mcp)'
 $script:TargetExe  = Join-Path $InstallRoot ${script:ExeName}
 $script:HostsFile  = Join-Path $env:SystemRoot "System32\drivers\etc\hosts"
 $script:PathMarker = $InstallRoot.TrimEnd('\')
@@ -56,7 +58,15 @@ function Split-PathList {
 }
 
 function Get-Processes {
-  return @(Get-Process -Name ${script:AppName} -ErrorAction SilentlyContinue)
+  $running = New-Object System.Collections.Generic.List[System.Diagnostics.Process]
+  foreach ($name in $script:LegacyProcessNames) {
+    foreach ($process in @(Get-Process -Name $name -ErrorAction SilentlyContinue)) {
+      if (-not ($running | Where-Object { $_.Id -eq $process.Id })) {
+        [void]$running.Add($process)
+      }
+    }
+  }
+  return @($running)
 }
 
 function Stop-InstalledApp {
@@ -133,7 +143,7 @@ function Test-HostsLine {
   param([string]$Address, [string[]]$Lines)
   foreach ($line in $Lines) {
     if ([regex]::IsMatch($line, ('^\s*127\.0\.0\.1\s+' + [regex]::Escape($Address) + '\s*$')) -or
-        [regex]::IsMatch($line, ('^#\s+sqcp\s+' + [regex]::Escape($Address) + '\s*$'))) {
+        [regex]::IsMatch($line, ('^#\s+' + $script:LegacyHostsMarkers + '\s+' + [regex]::Escape($Address) + '\s*$'))) {
       return $true
     }
   }
@@ -144,7 +154,7 @@ function Get-ManagedHostsNames {
   param([string[]]$Lines)
   $names = New-Object System.Collections.Generic.List[string]
   foreach ($line in $Lines) {
-    $match = [regex]::Match($line, '^#\s+sqcp\s+(?<name>\S+)\s*$')
+    $match = [regex]::Match($line, ('^#\s+' + $script:LegacyHostsMarkers + '\s+(?<name>\S+)\s*$'))
     if ($match.Success) { [void]$names.Add($match.Groups['name'].Value) }
   }
   return $names
@@ -175,7 +185,7 @@ function Remove-HostsEntries {
     $drop = $false
     foreach ($name in $targets) {
       if ([regex]::IsMatch($line, ('^\s*127\.0\.0\.1\s+' + [regex]::Escape($name) + '\s*$')) -or
-          [regex]::IsMatch($line, ('^#\s+sqcp\s+' + [regex]::Escape($name) + '\s*$'))) {
+          [regex]::IsMatch($line, ('^#\s+' + $script:LegacyHostsMarkers + '\s+' + [regex]::Escape($name) + '\s*$'))) {
         $drop = $true
         break
       }
